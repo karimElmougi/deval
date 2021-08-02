@@ -256,5 +256,9 @@ mod tests {
         let result = eval("1d4++4", &mut TestDice::new());
         let expected = ParseError::InvalidExpression("digit".to_string(), "+".to_string());
         assert_eq!(result, Err(expected));
+
+        let result = eval("10 + d", &mut TestDice::new());
+        let expected = ParseError::UnexpectedEndOfExpression("d".to_string());
+        assert_eq!(result, Err(expected));
     }
 }
