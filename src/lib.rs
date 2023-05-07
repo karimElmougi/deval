@@ -33,11 +33,13 @@ pub enum DiceType {
     D10,
     D12,
     D20,
+    D100,
 }
 
 impl DiceType {
     pub fn num_faces(self) -> u8 {
         match self {
+            DiceType::D100 => 100,
             DiceType::D20 => 20,
             DiceType::D12 => 12,
             DiceType::D10 => 10,
@@ -59,6 +61,7 @@ impl TryFrom<u8> for DiceType {
 
     fn try_from(n: u8) -> Result<DiceType, Self::Error> {
         match n {
+            100 => Ok(DiceType::D100),
             20 => Ok(DiceType::D20),
             12 => Ok(DiceType::D12),
             10 => Ok(DiceType::D10),
@@ -114,14 +117,12 @@ impl Expression {
 
 pub fn eval<D: DiceSource>(input: &str, src: &mut D) -> Result<i32, ParseError> {
     let mut tokens = lexer::tokenize(input)?;
-    dbg!(&tokens);
     let expr = parse_expr(&mut tokens)?;
     Ok(expr.eval(src))
 }
 
 fn parse_expr(tokens: &mut Vec<Token>) -> Result<Expression, ParseError> {
     let term = parse_term(tokens)?;
-    dbg!(&term);
     match tokens.last().copied() {
         Some(Token::Plus) => {
             tokens.pop();
@@ -166,6 +167,7 @@ mod tests {
         d10: u16,
         d12: u16,
         d20: u16,
+        d100: u16,
     }
 
     impl TestDice {
@@ -177,11 +179,13 @@ mod tests {
                 d10: 6,
                 d12: 7,
                 d20: 11,
+                d100: 51,
             }
         }
 
         fn roll_one(&mut self, dice: DiceType) -> u16 {
             match dice {
+                DiceType::D100 => self.roll_d100(),
                 DiceType::D20 => self.roll_d20(),
                 DiceType::D12 => self.roll_d12(),
                 DiceType::D10 => self.roll_d10(),
@@ -218,6 +222,11 @@ mod tests {
         fn roll_d20(&mut self) -> u16 {
             let val = self.d20;
             self.d20 += 1;
+            val
+        }
+        fn roll_d100(&mut self) -> u16 {
+            let val = self.d100;
+            self.d100 += 1;
             val
         }
     }
