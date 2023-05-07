@@ -92,54 +92,24 @@ impl Term {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum Expression {
-    Term(Term),
-    Plus(Box<Expression>, Box<Expression>),
-    Minus(Box<Expression>, Box<Expression>),
-}
-
-impl From<Term> for Expression {
-    fn from(term: Term) -> Self {
-        Expression::Term(term)
-    }
-}
-
-impl Expression {
-    fn eval<D: DiceSource>(self, src: &mut D) -> i32 {
-        match self {
-            Expression::Term(term) => term.eval(src),
-            Expression::Plus(a, b) => a.eval(src) + b.eval(src),
-            Expression::Minus(a, b) => a.eval(src) - b.eval(src),
-        }
-    }
-}
-
 pub fn eval<D: DiceSource>(input: &str, src: &mut D) -> Result<i32, ParseError> {
     let mut tokens = lexer::tokenize(input)?;
-    let expr = parse_expr(&mut tokens)?;
-    Ok(expr.eval(src))
+    eval_expr(&mut tokens, src)
 }
 
-fn parse_expr(tokens: &mut Vec<Token>) -> Result<Expression, ParseError> {
-    let term = parse_term(tokens)?;
+fn eval_expr<D: DiceSource>(tokens: &mut Vec<Token>, src: &mut D) -> Result<i32, ParseError> {
+    let term = parse_term(tokens)?.eval(src);
     match tokens.last().copied() {
         Some(Token::Plus) => {
             tokens.pop();
-            Ok(Expression::Plus(
-                Box::new(parse_expr(tokens)?),
-                Box::new(term.into()),
-            ))
+            Ok(eval_expr(tokens, src)? + term)
         }
         Some(Token::Minus) => {
             tokens.pop();
-            Ok(Expression::Minus(
-                Box::new(parse_expr(tokens)?),
-                Box::new(term.into()),
-            ))
+            Ok(eval_expr(tokens, src)? - term)
         }
         Some(token) => Err(ParseError::UnexpectedToken("+|-", token)),
-        None => Ok(Expression::Term(term)),
+        None => Ok(term),
     }
 }
 
@@ -235,33 +205,6 @@ mod tests {
         fn roll(&mut self, n: u8, dice: DiceType) -> u16 {
             (0..n).map(|_| self.roll_one(dice)).sum()
         }
-    }
-
-    #[test]
-    fn test_parse() {
-        use DiceType::*;
-        use Expression::{Minus, Plus};
-        use Term::{Advantage, Dice, Number};
-
-        let expr = "2d4 + d8 + ad20 - 1d6 - 6";
-        let mut tokens = tokenize(expr).unwrap();
-        let result = parse_expr(&mut tokens).unwrap();
-        assert_eq!(
-            result,
-            Minus(
-                Box::new(Minus(
-                    Box::new(Plus(
-                        Box::new(Plus(
-                            Box::new(Expression::Term(Dice(2, D4))),
-                            Box::new(Expression::Term(Dice(1, D8))),
-                        )),
-                        Box::new(Expression::Term(Advantage(D20))),
-                    )),
-                    Box::new(Expression::Term(Dice(1, D6))),
-                )),
-                Box::new(Expression::Term(Number(6))),
-            ),
-        );
     }
 
     #[test]
